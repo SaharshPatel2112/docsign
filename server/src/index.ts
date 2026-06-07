@@ -1,9 +1,8 @@
+import "./env";
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import userRouter from "./routes/user";
-
-dotenv.config();
+import documentsRouter from "./routes/documents";
 
 const app = express();
 app.use(cors());
@@ -11,5 +10,6 @@ app.use(express.json());
 
 app.get("/health", (_, res) => res.json({ status: "ok" }));
 app.use("/api/user", userRouter);
+app.use("/api/docs", documentsRouter);
 
 app.listen(5000, () => console.log("Server running on port 5000"));
