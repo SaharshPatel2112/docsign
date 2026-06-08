@@ -6,7 +6,6 @@ import { requireAuth, AuthRequest } from "../middleware/requireAuth";
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-// POST /api/docs/upload
 router.post(
   "/upload",
   requireAuth,
@@ -27,7 +26,6 @@ router.post(
 
       const fileName = `${req.userId}/${Date.now()}_${file.originalname}`;
 
-      // Upload to Supabase Storage
       const { error: storageError } = await supabase.storage
         .from("documents")
         .upload(fileName, file.buffer, {
@@ -40,18 +38,21 @@ router.post(
         return;
       }
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
+      const { data: urlData, error: signedError } = await supabase.storage
         .from("documents")
-        .getPublicUrl(fileName);
+        .createSignedUrl(fileName, 60 * 60 * 24 * 7);
 
-      // Save metadata to database
+      if (signedError || !urlData) {
+        res.status(500).json({ error: "Failed to generate URL" });
+        return;
+      }
+
       const { data: doc, error: dbError } = await supabase
         .from("documents")
         .insert({
           user_id: req.userId,
           file_name: file.originalname,
-          file_url: urlData.publicUrl,
+          file_url: urlData.signedUrl,
           status: "pending",
         })
         .select()
@@ -69,7 +70,6 @@ router.post(
   },
 );
 
-// GET /api/docs
 router.get("/", requireAuth, async (req: AuthRequest, res) => {
   try {
     const { data, error } = await supabase

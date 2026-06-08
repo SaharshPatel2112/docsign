@@ -1,7 +1,21 @@
+import { useState } from "react";
 import { UserButton } from "@clerk/clerk-react";
 import { UploadDocument } from "../components/UploadDocument";
+import { DocumentList } from "../components/DocumentList";
+import { PDFPreview } from "../components/PDFPreview";
+
+interface Document {
+  id: string;
+  file_name: string;
+  file_url: string;
+  status: string;
+  created_at: string;
+}
 
 export const Dashboard = () => {
+  const [refresh, setRefresh] = useState(0);
+  const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
+
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       {/* Navbar */}
@@ -14,12 +28,21 @@ export const Dashboard = () => {
       <main className="max-w-4xl mx-auto px-8 py-10">
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-2xl font-semibold">My Documents</h2>
-          <UploadDocument onUpload={() => console.log("uploaded")} />
+          <UploadDocument onUpload={() => setRefresh((r) => r + 1)} />
         </div>
-        <p className="text-gray-500">
-          No documents yet. Upload a PDF to get started.
-        </p>
+        <DocumentList
+          refresh={refresh}
+          onSelect={(doc) => setSelectedDoc(doc)}
+        />
       </main>
+
+      {/* PDF Preview Modal */}
+      {selectedDoc && (
+        <PDFPreview
+          fileUrl={selectedDoc.file_url}
+          onClose={() => setSelectedDoc(null)}
+        />
+      )}
     </div>
   );
 };
