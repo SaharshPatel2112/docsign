@@ -89,4 +89,24 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
+router.get("/:id", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("documents")
+      .select("*")
+      .eq("id", req.params.id)
+      .eq("user_id", req.userId)
+      .single();
+
+    if (error || !data) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+
+    res.json({ document: data });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch document" });
+  }
+});
+
 export default router;

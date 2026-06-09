@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import api, { setAuthToken } from "../lib/axios";
+import { useNavigate } from 'react-router-dom';
 
 interface Document {
   id: string;
@@ -15,8 +16,9 @@ interface Props {
   onSelect: (doc: Document) => void;
 }
 
-export const DocumentList = ({ refresh, onSelect }: Props) => {
+export const DocumentList = ({ refresh }: Props) => {
   const { getToken } = useAuth();
+  const navigate = useNavigate();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -55,7 +57,7 @@ export const DocumentList = ({ refresh, onSelect }: Props) => {
       {documents.map((doc) => (
         <div
           key={doc.id}
-          onClick={() => onSelect(doc)}
+          onClick={() => navigate(`/editor/${doc.id}`)}
           className="flex items-center justify-between bg-gray-900 border border-gray-800 rounded-lg px-5 py-4 cursor-pointer hover:border-blue-500 transition"
         >
           <div className="flex flex-col gap-1">

@@ -21,7 +21,15 @@ export const Dashboard = () => {
       {/* Navbar */}
       <nav className="flex items-center justify-between px-8 py-4 border-b border-gray-800">
         <h1 className="text-xl font-bold text-blue-400">DocSign</h1>
-        <UserButton />
+        <UserButton
+          appearance={{
+            elements: {
+              avatarBox: "w-10 h-10",
+            },
+          }}
+          userProfileMode="modal"
+          afterSignOutUrl="/login"
+        />
       </nav>
 
       {/* Main */}
