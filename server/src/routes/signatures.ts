@@ -64,24 +64,27 @@ router.get("/:documentId", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-// DELETE /api/signatures/:id — remove a signature field
-router.delete("/:id", requireAuth, async (req: AuthRequest, res) => {
-  try {
-    const { error } = await supabase
-      .from("signatures")
-      .delete()
-      .eq("id", req.params.id)
-      .eq("user_id", req.userId);
+router.delete(
+  "/document/:documentId",
+  requireAuth,
+  async (req: AuthRequest, res) => {
+    try {
+      const { error } = await supabase
+        .from("signatures")
+        .delete()
+        .eq("document_id", req.params.documentId)
+        .eq("user_id", req.userId);
 
-    if (error) {
-      res.status(500).json({ error: error.message });
-      return;
+      if (error) {
+        res.status(500).json({ error: error.message });
+        return;
+      }
+
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to delete signatures" });
     }
-
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to delete signature" });
-  }
-});
+  },
+);
 
 export default router;

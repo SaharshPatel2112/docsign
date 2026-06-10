@@ -3,16 +3,18 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
 import { Document, Page, pdfjs } from "react-pdf";
 import api, { setAuthToken } from "../lib/axios";
+import { SignatureField } from "../components/SignatureField";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
-interface SignatureField {
-  id?: string;
+interface SignatureFieldData {
+  id: string;
   x: number;
   y: number;
   page: number;
+  saved?: boolean;
 }
 
 export const DocumentEditor = () => {
@@ -25,10 +27,19 @@ export const DocumentEditor = () => {
   const [fileName, setFileName] = useState("");
   const [numPages, setNumPages] = useState(0);
   const [pageNumber, setPageNumber] = useState(1);
-  const [signatures, setSignatures] = useState<SignatureField[]>([]);
+  const [signatures, setSignatures] = useState<SignatureFieldData[]>([]);
   const [signerEmail, setSignerEmail] = useState("");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [placingMode, setPlacingMode] = useState(false);
+
+  const handleDrag = (sigId: string, x: number, y: number) => {
+    setSignatures((prev) =>
+      prev.map((sig) =>
+        sig.id === sigId ? { ...sig, x, y, saved: false } : sig,
+      ),
+    );
+  };
 
   useEffect(() => {
     const fetchDoc = async () => {
@@ -40,7 +51,14 @@ export const DocumentEditor = () => {
         setFileName(res.data.document.file_name);
 
         const sigRes = await api.get(`/api/signatures/${id}`);
-        setSignatures(sigRes.data.signatures);
+        const saved = sigRes.data.signatures.map((s: any) => ({
+          id: s.id,
+          x: s.x,
+          y: s.y,
+          page: s.page,
+          saved: true,
+        }));
+        setSignatures(saved);
       } catch (err) {
         console.error("Failed to load document");
       } finally {
@@ -51,14 +69,31 @@ export const DocumentEditor = () => {
   }, [id]);
 
   const handlePageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!placingMode) return;
+    if ((e.target as HTMLElement).closest(".group")) return;
+
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
-    // Save as percentage so it works on any screen size
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
 
-    setSignatures((prev) => [...prev, { x, y, page: pageNumber }]);
+    setSignatures((prev) => [
+      ...prev,
+      {
+        id: `new-${Date.now()}`,
+        x,
+        y,
+        page: pageNumber,
+        saved: false,
+      },
+    ]);
+
+    setPlacingMode(false);
+  };
+
+  const handleRemove = (index: number) => {
+    setSignatures((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSave = async () => {
@@ -67,19 +102,16 @@ export const DocumentEditor = () => {
       const token = await getToken();
       setAuthToken(token);
 
-      const newSignatures = signatures.filter((s) => !s.id);
-      console.log("Saving signatures:", newSignatures);
-      console.log("Document ID:", id);
+      await api.delete(`/api/signatures/document/${id}`);
 
-      for (const sig of newSignatures) {
-        const res = await api.post("/api/signatures", {
+      for (const sig of signatures) {
+        await api.post("/api/signatures", {
           document_id: id,
           x: sig.x,
           y: sig.y,
           page: sig.page,
           signer_email: signerEmail || null,
         });
-        console.log("Saved:", res.data);
       }
 
       navigate("/dashboard");
@@ -88,10 +120,6 @@ export const DocumentEditor = () => {
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleRemove = (index: number) => {
-    setSignatures((prev) => prev.filter((_, i) => i !== index));
   };
 
   if (loading)
@@ -136,25 +164,40 @@ export const DocumentEditor = () => {
               className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
             />
           </div>
+          <button
+            onClick={() => setPlacingMode((prev) => !prev)}
+            className={`w-full py-2 rounded-lg text-sm font-medium border transition ${
+              placingMode
+                ? "bg-blue-600 border-blue-500 text-white"
+                : "bg-gray-900 border-gray-700 text-gray-300 hover:border-blue-500"
+            }`}
+          >
+            {placingMode ? "🖱 Click PDF to place..." : "+ Add Signature Field"}
+          </button>
 
           <div>
-            <p className="text-sm text-gray-400 mb-2">
-              Click on the PDF to place signature fields
+            <p className="text-sm text-gray-400 mb-1">
+              Click PDF to place a field
             </p>
-            <p className="text-xs text-gray-600">
-              {signatures.length} field(s) placed
+            <p className="text-sm text-gray-400">Drag fields to reposition</p>
+            <p className="text-xs text-gray-600 mt-1">
+              {signatures.filter((s) => s.page === pageNumber).length} field(s)
+              on this page
             </p>
           </div>
 
-          {/* Signature list */}
-          <div className="flex flex-col gap-2">
+          {/* Fields list */}
+          <div className="flex flex-col gap-2 overflow-y-auto">
             {signatures.map((sig, i) => (
               <div
-                key={i}
+                key={sig.id}
                 className="flex items-center justify-between bg-gray-900 rounded-lg px-3 py-2"
               >
                 <span className="text-xs text-gray-400">
                   Field {i + 1} — Page {sig.page}
+                  {!sig.saved && (
+                    <span className="ml-1 text-yellow-500">●</span>
+                  )}
                 </span>
                 <button
                   onClick={() => handleRemove(i)}
@@ -190,12 +233,13 @@ export const DocumentEditor = () => {
           )}
         </div>
 
-        {/* PDF Canvas Area */}
+        {/* PDF Canvas */}
         <div className="flex-1 overflow-auto flex justify-center p-8 bg-gray-900">
           <div
             ref={containerRef}
             onClick={handlePageClick}
-            className="relative cursor-crosshair"
+            style={{ position: "relative" }}
+            className={placingMode ? "cursor-crosshair" : "cursor-default"}
           >
             <Document
               file={fileUrl}
@@ -204,22 +248,19 @@ export const DocumentEditor = () => {
               <Page pageNumber={pageNumber} width={700} />
             </Document>
 
-            {/* Render signature fields */}
             {signatures
               .filter((s) => s.page === pageNumber)
               .map((sig, i) => (
-                <div
-                  key={i}
-                  style={{
-                    position: "absolute",
-                    left: `${sig.x}%`,
-                    top: `${sig.y}%`,
-                    transform: "translate(-50%, -50%)",
-                  }}
-                  className="border-2 border-blue-500 bg-blue-500 bg-opacity-20 rounded px-3 py-1 text-xs text-blue-300 pointer-events-none"
-                >
-                  ✍ Signature
-                </div>
+                <SignatureField
+                  key={sig.id}
+                  id={sig.id}
+                  x={sig.x}
+                  y={sig.y}
+                  index={i}
+                  onRemove={handleRemove}
+                  onDrag={handleDrag}
+                  containerRef={containerRef}
+                />
               ))}
           </div>
         </div>
