@@ -32,6 +32,7 @@ export const DocumentEditor = () => {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [placingMode, setPlacingMode] = useState(false);
+  const [showAllFields, setShowAllFields] = useState(false);
 
   const handleDrag = (sigId: string, x: number, y: number) => {
     setSignatures((prev) =>
@@ -130,88 +131,114 @@ export const DocumentEditor = () => {
     );
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col">
+    <div className="h-screen bg-gray-950 text-white flex flex-col overflow-hidden">
       {/* Navbar */}
-      <nav className="flex items-center justify-between px-8 py-4 border-b border-gray-800">
+      <nav className="flex-shrink-0 flex items-center justify-between px-4 sm:px-8 py-4 border-b border-gray-800">
         <button
           onClick={() => navigate("/dashboard")}
-          className="text-gray-400 hover:text-white text-sm"
+          className="text-gray-400 hover:text-white text-sm whitespace-nowrap"
         >
           ← Back
         </button>
-        <h1 className="text-lg font-semibold truncate max-w-sm">{fileName}</h1>
+        <h1 className="text-sm sm:text-lg font-semibold truncate max-w-[200px] sm:max-w-sm mx-4">
+          {fileName}
+        </h1>
         <button
           onClick={handleSave}
           disabled={saving}
-          className="bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+          className="flex-shrink-0 bg-blue-600 hover:bg-blue-700 px-3 sm:px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
         >
           {saving ? "Saving..." : "Save Signatures"}
         </button>
       </nav>
 
+      {/* Body */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <div className="w-72 border-r border-gray-800 p-5 flex flex-col gap-4">
-          <div>
-            <label className="text-sm text-gray-400 mb-1 block">
-              Signer Email
-            </label>
-            <input
-              type="email"
-              value={signerEmail}
-              onChange={(e) => setSignerEmail(e.target.value)}
-              placeholder="signer@example.com"
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-            />
+        {/* Sidebar — fixed height, scrollable internally */}
+        <div className="flex-shrink-0 w-64 border-r border-gray-800 flex flex-col overflow-hidden">
+          {/* Static controls */}
+          <div className="p-4 flex flex-col gap-3 border-b border-gray-800">
+            <div>
+              <label className="text-xs text-gray-400 mb-1 block">
+                Signer Email
+              </label>
+              <input
+                type="email"
+                value={signerEmail}
+                onChange={(e) => setSignerEmail(e.target.value)}
+                placeholder="signer@example.com"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            <button
+              onClick={() => setPlacingMode((prev) => !prev)}
+              className={`w-full py-2 rounded-lg text-sm font-medium border transition ${
+                placingMode
+                  ? "bg-blue-600 border-blue-500 text-white"
+                  : "bg-gray-900 border-gray-700 text-gray-300 hover:border-blue-500"
+              }`}
+            >
+              {placingMode
+                ? "🖱 Click PDF to place..."
+                : "+ Add Signature Field"}
+            </button>
+            <div>
+              <p className="text-xs text-gray-500">
+                Click PDF to place a field
+              </p>
+              <p className="text-xs text-gray-500">Drag fields to reposition</p>
+              <p className="text-xs text-gray-600 mt-1">
+                {signatures.filter((s) => s.page === pageNumber).length}{" "}
+                field(s) on this page
+              </p>
+            </div>
           </div>
-          <button
-            onClick={() => setPlacingMode((prev) => !prev)}
-            className={`w-full py-2 rounded-lg text-sm font-medium border transition ${
-              placingMode
-                ? "bg-blue-600 border-blue-500 text-white"
-                : "bg-gray-900 border-gray-700 text-gray-300 hover:border-blue-500"
-            }`}
-          >
-            {placingMode ? "🖱 Click PDF to place..." : "+ Add Signature Field"}
-          </button>
 
-          <div>
-            <p className="text-sm text-gray-400 mb-1">
-              Click PDF to place a field
-            </p>
-            <p className="text-sm text-gray-400">Drag fields to reposition</p>
-            <p className="text-xs text-gray-600 mt-1">
-              {signatures.filter((s) => s.page === pageNumber).length} field(s)
-              on this page
-            </p>
-          </div>
-
-          {/* Fields list */}
-          <div className="flex flex-col gap-2 overflow-y-auto">
-            {signatures.map((sig, i) => (
-              <div
-                key={sig.id}
-                className="flex items-center justify-between bg-gray-900 rounded-lg px-3 py-2"
-              >
-                <span className="text-xs text-gray-400">
-                  Field {i + 1} — Page {sig.page}
-                  {!sig.saved && (
-                    <span className="ml-1 text-yellow-500">●</span>
+          {/* Signature fields list — scrollable */}
+          <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2">
+            {(() => {
+              const visible = showAllFields
+                ? signatures
+                : signatures.slice(0, 7);
+              return (
+                <>
+                  {visible.map((sig, i) => (
+                    <div
+                      key={sig.id}
+                      className="flex items-center justify-between bg-gray-900 rounded-lg px-3 py-2"
+                    >
+                      <span className="text-xs text-gray-400">
+                        Field {i + 1} — Page {sig.page}
+                        {!sig.saved && (
+                          <span className="ml-1 text-yellow-500">●</span>
+                        )}
+                      </span>
+                      <button
+                        onClick={() => handleRemove(i)}
+                        className="text-red-400 hover:text-red-300 text-xs ml-2 flex-shrink-0"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  {signatures.length > 7 && (
+                    <button
+                      onClick={() => setShowAllFields((p) => !p)}
+                      className="text-xs text-blue-400 hover:text-blue-300 text-left mt-1"
+                    >
+                      {showAllFields
+                        ? "Show less"
+                        : `+ ${signatures.length - 7} more`}
+                    </button>
                   )}
-                </span>
-                <button
-                  onClick={() => handleRemove(i)}
-                  className="text-red-400 hover:text-red-300 text-xs"
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
+                </>
+              );
+            })()}
           </div>
 
-          {/* Page controls */}
+          {/* Page controls — pinned to bottom of sidebar */}
           {numPages > 1 && (
-            <div className="flex items-center gap-2 mt-auto">
+            <div className="flex-shrink-0 flex items-center gap-2 p-4 border-t border-gray-800">
               <button
                 onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
                 disabled={pageNumber <= 1}
@@ -219,7 +246,7 @@ export const DocumentEditor = () => {
               >
                 Prev
               </button>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-gray-500 whitespace-nowrap">
                 {pageNumber}/{numPages}
               </span>
               <button
@@ -233,35 +260,37 @@ export const DocumentEditor = () => {
           )}
         </div>
 
-        {/* PDF Canvas */}
-        <div className="flex-1 overflow-auto flex justify-center p-8 bg-gray-900">
-          <div
-            ref={containerRef}
-            onClick={handlePageClick}
-            style={{ position: "relative" }}
-            className={placingMode ? "cursor-crosshair" : "cursor-default"}
-          >
-            <Document
-              file={fileUrl}
-              onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+        {/* PDF area — scrollable independently */}
+        <div className="flex-1 overflow-auto bg-gray-900">
+          <div className="p-6 w-fit min-w-full">
+            <div
+              ref={containerRef}
+              onClick={handlePageClick}
+              style={{ position: "relative" }}
+              className={placingMode ? "cursor-crosshair" : "cursor-default"}
             >
-              <Page pageNumber={pageNumber} width={700} />
-            </Document>
+              <Document
+                file={fileUrl}
+                onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+              >
+                <Page pageNumber={pageNumber} width={600} />
+              </Document>
 
-            {signatures
-              .filter((s) => s.page === pageNumber)
-              .map((sig, i) => (
-                <SignatureField
-                  key={sig.id}
-                  id={sig.id}
-                  x={sig.x}
-                  y={sig.y}
-                  index={i}
-                  onRemove={handleRemove}
-                  onDrag={handleDrag}
-                  containerRef={containerRef}
-                />
-              ))}
+              {signatures
+                .filter((s) => s.page === pageNumber)
+                .map((sig, i) => (
+                  <SignatureField
+                    key={sig.id}
+                    id={sig.id}
+                    x={sig.x}
+                    y={sig.y}
+                    index={i}
+                    onRemove={handleRemove}
+                    onDrag={handleDrag}
+                    containerRef={containerRef}
+                  />
+                ))}
+            </div>
           </div>
         </div>
       </div>

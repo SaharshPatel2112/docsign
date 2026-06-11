@@ -2,55 +2,37 @@ import { useState } from "react";
 import { UserButton } from "@clerk/clerk-react";
 import { UploadDocument } from "../components/UploadDocument";
 import { DocumentList } from "../components/DocumentList";
-import { PDFPreview } from "../components/PDFPreview";
-
-interface Document {
-  id: string;
-  file_name: string;
-  file_url: string;
-  status: string;
-  created_at: string;
-}
 
 export const Dashboard = () => {
   const [refresh, setRefresh] = useState(0);
-  const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      {/* Navbar */}
       <nav className="flex items-center justify-between px-8 py-4 border-b border-gray-800">
-        <h1 className="text-xl font-bold text-blue-400">DocSign</h1>
+        <h1 className="text-2xl font-bold text-blue-400 tracking-tight">
+          DocSign
+        </h1>
         <UserButton
-          appearance={{
-            elements: {
-              avatarBox: "w-10 h-10",
-            },
-          }}
+          appearance={{ elements: { avatarBox: "w-10 h-10" } }}
           userProfileMode="modal"
           afterSignOutUrl="/login"
         />
       </nav>
 
-      {/* Main */}
-      <main className="max-w-4xl mx-auto px-8 py-10">
-        <div className="flex items-center justify-between mb-8">
-          <h2 className="text-2xl font-semibold">My Documents</h2>
-          <UploadDocument onUpload={() => setRefresh((r) => r + 1)} />
+      <main className="max-w-4xl mx-auto px-4 sm:px-8 py-10">
+        <div className="flex items-start justify-between mb-8 gap-4">
+          <div className="min-w-0">
+            <h2 className="text-2xl font-semibold text-left">My Documents</h2>
+            <p className="text-gray-500 text-sm mt-1 text-left">
+              Upload and manage your documents for signing
+            </p>
+          </div>
+          <div className="flex-shrink-0">
+            <UploadDocument onUpload={() => setRefresh((r) => r + 1)} />
+          </div>
         </div>
-        <DocumentList
-          refresh={refresh}
-          onSelect={(doc) => setSelectedDoc(doc)}
-        />
+        <DocumentList refresh={refresh} />
       </main>
-
-      {/* PDF Preview Modal */}
-      {selectedDoc && (
-        <PDFPreview
-          fileUrl={selectedDoc.file_url}
-          onClose={() => setSelectedDoc(null)}
-        />
-      )}
     </div>
   );
 };
