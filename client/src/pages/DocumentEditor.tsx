@@ -33,6 +33,7 @@ export const DocumentEditor = () => {
   const [loading, setLoading] = useState(true);
   const [placingMode, setPlacingMode] = useState(false);
   const [showAllFields, setShowAllFields] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
 
   const handleDrag = (sigId: string, x: number, y: number) => {
     setSignatures((prev) =>
@@ -97,6 +98,25 @@ export const DocumentEditor = () => {
     setSignatures((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const handleFinalize = async () => {
+    try {
+      setFinalizing(true);
+      const token = await getToken();
+      setAuthToken(token);
+
+      const res = await api.post(`/api/docs/${id}/finalize`);
+      const signedUrl = res.data.signed_url;
+
+      window.open(signedUrl, "_blank");
+      navigate("/dashboard");
+    } catch (err: any) {
+      console.error("Finalize failed:", err.response?.data || err.message);
+      alert(err.response?.data?.error || "Failed to generate signed PDF");
+    } finally {
+      setFinalizing(false);
+    }
+  };
+
   const handleSave = async () => {
     try {
       setSaving(true);
@@ -143,18 +163,27 @@ export const DocumentEditor = () => {
         <h1 className="text-sm sm:text-lg font-semibold truncate max-w-[200px] sm:max-w-sm mx-4">
           {fileName}
         </h1>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex-shrink-0 bg-blue-600 hover:bg-blue-700 px-3 sm:px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
-        >
-          {saving ? "Saving..." : "Save Signatures"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleSave}
+            disabled={saving || finalizing}
+            className="flex-shrink-0 border border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white px-3 sm:px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition"
+          >
+            {saving ? "Saving..." : "Save"}
+          </button>
+          <button
+            onClick={handleFinalize}
+            disabled={finalizing || saving}
+            className="flex-shrink-0 bg-green-600 hover:bg-green-700 px-3 sm:px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition"
+          >
+            {finalizing ? "Generating..." : "✓ Finalize & Sign"}
+          </button>
+        </div>
       </nav>
 
       {/* Body */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar — fixed height, scrollable internally */}
+        {/* Sidebar */}
         <div className="flex-shrink-0 w-64 border-r border-gray-800 flex flex-col overflow-hidden">
           {/* Static controls */}
           <div className="p-4 flex flex-col gap-3 border-b border-gray-800">
@@ -236,7 +265,7 @@ export const DocumentEditor = () => {
             })()}
           </div>
 
-          {/* Page controls — pinned to bottom of sidebar */}
+          {/* Page controls — pinned to bottom */}
           {numPages > 1 && (
             <div className="flex-shrink-0 flex items-center gap-2 p-4 border-t border-gray-800">
               <button
@@ -260,7 +289,7 @@ export const DocumentEditor = () => {
           )}
         </div>
 
-        {/* PDF area — scrollable independently */}
+        {/* PDF area */}
         <div className="flex-1 overflow-auto bg-gray-900">
           <div className="p-6 w-fit min-w-full">
             <div

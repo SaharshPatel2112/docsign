@@ -2,6 +2,8 @@ import { Router } from "express";
 import multer from "multer";
 import { supabase } from "../lib/supabase";
 import { requireAuth, AuthRequest } from "../middleware/requireAuth";
+import { generateSignedPdf } from "../lib/generateSignedPdf";
+import fetch from "node-fetch";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -106,6 +108,100 @@ router.get("/:id", requireAuth, async (req: AuthRequest, res) => {
     res.json({ document: data });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch document" });
+  }
+});
+
+router.post("/:id/finalize", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const { data: doc, error: docError } = await supabase
+      .from("documents")
+      .select("*")
+      .eq("id", req.params.id)
+      .eq("user_id", req.userId)
+      .single();
+
+    if (docError || !doc) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+
+    const { data: signatures, error: sigError } = await supabase
+      .from("signatures")
+      .select("*")
+      .eq("document_id", req.params.id);
+
+    if (sigError) {
+      res.status(500).json({ error: sigError.message });
+      return;
+    }
+
+    if (!signatures || signatures.length === 0) {
+      res.status(400).json({ error: "No signatures found for this document" });
+      return;
+    }
+
+    const pdfResponse = await fetch(doc.file_url);
+    if (!pdfResponse.ok) {
+      res.status(500).json({ error: "Failed to download original PDF" });
+      return;
+    }
+    const pdfBuffer = await pdfResponse.arrayBuffer();
+
+    const signedPdfBytes = await generateSignedPdf(pdfBuffer, signatures);
+
+    const signedFileName = `${req.userId}/signed_${Date.now()}_${doc.file_name}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("documents")
+      .upload(signedFileName, signedPdfBytes, {
+        contentType: "application/pdf",
+        upsert: false,
+      });
+
+    if (uploadError) {
+      res.status(500).json({ error: uploadError.message });
+      return;
+    }
+
+    const { data: urlData, error: urlError } = await supabase.storage
+      .from("documents")
+      .createSignedUrl(signedFileName, 60 * 60 * 24 * 7);
+
+    if (urlError || !urlData) {
+      res.status(500).json({ error: "Failed to generate signed URL" });
+      return;
+    }
+
+    const { data: updatedDoc, error: updateError } = await supabase
+      .from("documents")
+      .update({
+        status: "signed",
+        signed_file_url: urlData.signedUrl,
+      })
+      .eq("id", req.params.id)
+      .select()
+      .single();
+
+    if (updateError) {
+      res.status(500).json({ error: updateError.message });
+      return;
+    }
+
+    await supabase
+      .from("signatures")
+      .update({
+        status: "signed",
+        signed_at: new Date().toISOString(),
+      })
+      .eq("document_id", req.params.id);
+
+    res.json({
+      document: updatedDoc,
+      signed_url: urlData.signedUrl,
+    });
+  } catch (err) {
+    console.error("Finalize error:", err);
+    res.status(500).json({ error: "Failed to generate signed PDF" });
   }
 });
 

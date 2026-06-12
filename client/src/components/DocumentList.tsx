@@ -7,6 +7,7 @@ interface Document {
   id: string;
   file_name: string;
   file_url: string;
+  signed_file_url: string | null;
   status: string;
   created_at: string;
 }
@@ -63,6 +64,7 @@ export const DocumentList = ({ refresh }: Props) => {
         <p className="text-gray-600 text-sm">Upload a PDF to get started</p>
       </div>
     );
+
   return (
     <div className="flex flex-col gap-3">
       {documents.map((doc) => (
@@ -92,6 +94,17 @@ export const DocumentList = ({ refresh }: Props) => {
             >
               {doc.status}
             </span>
+            {doc.status === "signed" && doc.signed_file_url && (
+              <a
+                href={doc.signed_file_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-xs bg-green-700 hover:bg-green-600 text-white px-2 py-1 rounded transition"
+              >
+                ↓ Download
+              </a>
+            )}
             <span className="text-gray-600 group-hover:text-gray-400 transition text-sm">
               →
             </span>
