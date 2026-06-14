@@ -34,6 +34,7 @@ export const DocumentEditor = () => {
   const [placingMode, setPlacingMode] = useState(false);
   const [showAllFields, setShowAllFields] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   const handleDrag = (sigId: string, x: number, y: number) => {
     setSignatures((prev) =>
@@ -104,16 +105,51 @@ export const DocumentEditor = () => {
       const token = await getToken();
       setAuthToken(token);
 
-      const res = await api.post(`/api/docs/${id}/finalize`);
-      const signedUrl = res.data.signed_url;
+      // Save signatures first
+      await api.delete(`/api/signatures/document/${id}`);
+      for (const sig of signatures) {
+        await api.post("/api/signatures", {
+          document_id: id,
+          x: sig.x,
+          y: sig.y,
+          page: sig.page,
+          signer_email: signerEmail || null,
+        });
+      }
 
-      window.open(signedUrl, "_blank");
+      const res = await api.post(`/api/docs/${id}/finalize`);
+
+      // Open the signed PDF for download/review
+      window.open(res.data.signed_url, "_blank");
       navigate("/dashboard");
     } catch (err: any) {
       console.error("Finalize failed:", err.response?.data || err.message);
       alert(err.response?.data?.error || "Failed to generate signed PDF");
     } finally {
       setFinalizing(false);
+    }
+  };
+
+  const handleShare = async () => {
+    if (!signerEmail) {
+      alert("Please enter a signer email first");
+      return;
+    }
+    try {
+      setSharing(true);
+      const token = await getToken();
+      setAuthToken(token);
+
+      const res = await api.post(`/api/share/${id}`, {
+        signer_email: signerEmail,
+      });
+
+      const link = res.data.signing_link;
+      alert(`Signing link:\n${link}\n\nCopy this and open in browser to test.`);
+    } catch (err: any) {
+      alert(err.response?.data?.error || "Failed to send signing link");
+    } finally {
+      setSharing(false);
     }
   };
 
@@ -135,9 +171,11 @@ export const DocumentEditor = () => {
         });
       }
 
-      navigate("/dashboard");
+      // Stay on page — just mark all as saved
+      setSignatures((prev) => prev.map((s) => ({ ...s, saved: true })));
     } catch (err: any) {
       console.error("Save failed:", err.response?.data || err.message);
+      alert("Save failed. Try again.");
     } finally {
       setSaving(false);
     }
@@ -177,6 +215,13 @@ export const DocumentEditor = () => {
             className="flex-shrink-0 bg-green-600 hover:bg-green-700 px-3 sm:px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition"
           >
             {finalizing ? "Generating..." : "✓ Finalize & Sign"}
+          </button>
+          <button
+            onClick={handleShare}
+            disabled={sharing || saving || finalizing}
+            className="flex-shrink-0 bg-purple-600 hover:bg-purple-700 px-3 sm:px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition"
+          >
+            {sharing ? "Sending..." : "📧 Send for Signing"}
           </button>
         </div>
       </nav>

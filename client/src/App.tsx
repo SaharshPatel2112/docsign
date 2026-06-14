@@ -3,6 +3,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { Dashboard } from "./pages/Dashboard";
 import { DocumentEditor } from "./pages/DocumentEditor";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { SigningPage } from "./pages/SigningPage";
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
           }
         />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/sign/:token" element={<SigningPage />} />
       </Routes>
     </BrowserRouter>
   );
