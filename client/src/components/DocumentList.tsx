@@ -77,10 +77,10 @@ export const DocumentList = ({ refresh }: Props) => {
           {/* Card row */}
           <div
             onClick={() =>
-              doc.status !== "signed" && navigate(`/editor/${doc.id}`)
+              doc.status === "pending" && navigate(`/editor/${doc.id}`)
             }
             className={`flex items-center justify-between px-5 py-4 transition rounded-t-lg ${
-              doc.status !== "signed"
+              doc.status === "pending"
                 ? "cursor-pointer hover:bg-gray-800"
                 : "cursor-default"
             }`}
@@ -118,7 +118,18 @@ export const DocumentList = ({ refresh }: Props) => {
                   ↓ Download
                 </a>
               )}
-              {doc.status !== "signed" && (
+              {doc.status === "rejected" && doc.file_url && (
+                <a
+                  href={doc.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-xs bg-red-700 hover:bg-red-600 text-white px-2 py-1 rounded transition"
+                >
+                  ↓ Download
+                </a>
+              )}
+              {doc.status === "pending" && (
                 <span className="text-gray-600 group-hover:text-gray-400 transition text-sm">
                   →
                 </span>

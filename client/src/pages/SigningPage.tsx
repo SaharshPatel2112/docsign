@@ -15,10 +15,14 @@ export const SigningPage = () => {
   const [docData, setDocData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [signing, setSigning] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
   const [signed, setSigned] = useState(false);
+  const [rejected, setRejected] = useState(false);
   const [error, setError] = useState("");
   const [pageNumber, setPageNumber] = useState(1);
   const [numPages, setNumPages] = useState(0);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
 
   useEffect(() => {
     const fetchSignature = async () => {
@@ -47,6 +51,21 @@ export const SigningPage = () => {
     }
   };
 
+  const handleReject = async () => {
+    try {
+      setRejecting(true);
+      await axios.post(`${BASE_URL}/api/share/sign/${token}/reject`, {
+        reason: rejectReason || "No reason provided",
+      });
+      setRejected(true);
+      setShowRejectModal(false);
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Failed to reject document");
+    } finally {
+      setRejecting(false);
+    }
+  };
+
   if (loading)
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
@@ -57,8 +76,12 @@ export const SigningPage = () => {
   if (error)
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-400 text-xl mb-2">Invalid Link</p>
+        <div className="text-center flex flex-col gap-3">
+          <p className="text-red-400 text-xl">
+            {error === "Document already signed"
+              ? "✓ Already Signed"
+              : "Invalid Link"}
+          </p>
           <p className="text-gray-500">{error}</p>
         </div>
       </div>
@@ -79,16 +102,22 @@ export const SigningPage = () => {
       </div>
     );
 
-  if (error)
+  if (rejected)
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-center flex flex-col gap-3">
-          <p className="text-red-400 text-xl">
-            {error === "Document already signed"
-              ? "✓ Already Signed"
-              : "Invalid Link"}
+        <div className="text-center flex flex-col items-center gap-4">
+          <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+            ✕
+          </div>
+          <h2 className="text-white text-2xl font-semibold">
+            Document Rejected
+          </h2>
+          <p className="text-gray-400">
+            You have rejected the signing request.
           </p>
-          <p className="text-gray-500">{error}</p>
+          {rejectReason && (
+            <p className="text-gray-500 text-sm">Reason: {rejectReason}</p>
+          )}
         </div>
       </div>
     );
@@ -97,6 +126,43 @@ export const SigningPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col">
+      {/* Reject Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-gray-900 rounded-xl p-6 w-full max-w-md flex flex-col gap-4">
+            <h3 className="text-white font-semibold text-lg">
+              Reject Document
+            </h3>
+            <p className="text-gray-400 text-sm">
+              Please provide a reason for rejection (optional):
+            </p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Enter reason for rejection..."
+              rows={4}
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-red-500 resize-none"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowRejectModal(false)}
+                className="flex-1 py-2 border border-gray-700 rounded-lg text-sm text-gray-400 hover:text-white transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReject}
+                disabled={rejecting}
+                className="flex-1 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm font-medium disabled:opacity-50 transition"
+              >
+                {rejecting ? "Rejecting..." : "Confirm Reject"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Navbar */}
       <nav className="flex items-center justify-between px-8 py-4 border-b border-gray-800">
         <h1 className="text-xl font-bold text-blue-400">DocSign</h1>
         <div className="flex items-center gap-3">
@@ -122,8 +188,15 @@ export const SigningPage = () => {
             </div>
           )}
           <button
+            onClick={() => setShowRejectModal(true)}
+            disabled={signing || rejecting}
+            className="border border-red-600 text-red-400 hover:bg-red-600 hover:text-white px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition"
+          >
+            Reject
+          </button>
+          <button
             onClick={handleSign}
-            disabled={signing}
+            disabled={signing || rejecting}
             className="bg-green-600 hover:bg-green-700 px-6 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
           >
             {signing ? "Signing..." : "Sign Document"}

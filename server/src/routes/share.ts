@@ -208,4 +208,58 @@ router.post("/sign/:token/complete", async (req, res) => {
   }
 });
 
+// POST /api/share/sign/:token/reject — signer rejects
+router.post("/sign/:token/reject", async (req, res) => {
+  try {
+    const { reason } = req.body;
+
+    const { data: signature, error: findError } = await supabase
+      .from("signatures")
+      .select("*, documents(*)")
+      .eq("token", req.params.token)
+      .single();
+
+    if (findError || !signature) {
+      res.status(404).json({ error: "Invalid signing link" });
+      return;
+    }
+
+    if (signature.status === "signed") {
+      res.status(400).json({ error: "Document already signed" });
+      return;
+    }
+
+    if (signature.status === "rejected") {
+      res.status(400).json({ error: "Document already rejected" });
+      return;
+    }
+
+    await supabase
+      .from("signatures")
+      .update({
+        status: "rejected",
+        signed_at: new Date().toISOString(),
+        ip_address: req.ip || "",
+      })
+      .eq("token", req.params.token);
+
+    await supabase
+      .from("documents")
+      .update({ status: "rejected" })
+      .eq("id", signature.document_id);
+
+    await logAudit(
+      signature.document_id,
+      "document_rejected",
+      String(signature.signer_email),
+      String(req.ip),
+      { reason: reason || "No reason provided" },
+    );
+
+    res.json({ success: true, message: "Document rejected" });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to reject document" });
+  }
+});
+
 export default router;

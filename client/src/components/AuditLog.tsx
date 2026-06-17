@@ -27,6 +27,8 @@ const actionConfig = (action: string) => {
         color: "text-purple-400",
         icon: "📧",
       };
+    case "document_rejected":
+      return { label: "Rejected by Signer", color: "text-red-400", icon: "✕" };
     case "document_signed":
       return { label: "Signed by Signer", color: "text-green-400", icon: "✍" };
     default:
@@ -114,6 +116,14 @@ export const AuditLog = ({ documentId }: { documentId: string }) => {
                       to {log.metadata.signer_email}
                     </span>
                   )}
+
+                  {/* Rejection reason */}
+                  {log.action === "document_rejected" &&
+                    log.metadata?.reason && (
+                      <span className="text-xs text-red-400 pl-5">
+                        Reason: {log.metadata.reason}
+                      </span>
+                    )}
                 </div>
               );
             })
