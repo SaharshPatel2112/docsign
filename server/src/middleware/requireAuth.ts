@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
 
 export interface AuthRequest extends Request {
-  userId?: string;
+  userId: string;
+  userEmail: string;
 }
 
 export const requireAuth = async (
@@ -12,24 +12,27 @@ export const requireAuth = async (
 ) => {
   try {
     const authHeader = req.headers.authorization;
-
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
 
     const token = authHeader.split(" ")[1];
+    const parts = token.split(".");
+    const payload = JSON.parse(
+      Buffer.from(parts[1], "base64").toString("utf8"),
+    );
 
-    // Decode without verifying — Clerk already issued this token
-    // Full verification happens via Clerk's JWKS in production
-    const decoded = jwt.decode(token) as { sub: string } | null;
+    console.log("Token payload keys:", Object.keys(payload));
+    console.log("Email from token:", payload.email);
 
-    if (!decoded?.sub) {
+    if (!payload.sub) {
       res.status(401).json({ error: "Invalid token" });
       return;
     }
 
-    req.userId = decoded.sub;
+    req.userId = payload.sub;
+    req.userEmail = payload.email || payload.sub;
     next();
   } catch (err) {
     res.status(401).json({ error: "Unauthorized" });

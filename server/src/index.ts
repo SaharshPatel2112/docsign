@@ -5,6 +5,7 @@ import userRouter from "./routes/user";
 import documentsRouter from "./routes/documents";
 import signaturesRouter from "./routes/signatures";
 import shareRouter from "./routes/share";
+import auditRouter from "./routes/audit";
 
 const app = express();
 app.use(cors());
@@ -15,5 +16,6 @@ app.use("/api/user", userRouter);
 app.use("/api/docs", documentsRouter);
 app.use("/api/signatures", signaturesRouter);
 app.use("/api/share", shareRouter);
+app.use("/api/audit", auditRouter);
 
 app.listen(5000, () => console.log("Server running on port 5000"));

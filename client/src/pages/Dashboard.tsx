@@ -8,10 +8,13 @@ export const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      <nav className="flex items-center justify-between px-8 py-4 border-b border-gray-800">
-        <h1 className="text-2xl font-bold text-blue-400 tracking-tight">
-          DocSign
-        </h1>
+      <nav className="flex items-center justify-between px-4 sm:px-8 py-4 border-b border-gray-800">
+        <div className="flex items-center gap-2">
+          <img src="/docsign.svg" alt="DocSign" className="w-8 h-8" />
+          <h1 className="text-2xl font-bold text-blue-400 tracking-tight">
+            DocSign
+          </h1>
+        </div>
         <UserButton
           appearance={{ elements: { avatarBox: "w-10 h-10" } }}
           userProfileMode="modal"

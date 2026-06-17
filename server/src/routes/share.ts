@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import { supabase } from "../lib/supabase";
 import { requireAuth, AuthRequest } from "../middleware/requireAuth";
 import { sendSigningEmail } from "../lib/sendEmail";
+import { logAudit } from "../lib/audit";
 
 const router = Router();
 
@@ -11,6 +12,7 @@ router.post("/:documentId", requireAuth, async (req: AuthRequest, res) => {
   try {
     const { signer_email, signer_name } = req.body;
     const { documentId } = req.params;
+    const docId = Array.isArray(documentId) ? documentId[0] : documentId;
 
     if (!signer_email) {
       res.status(400).json({ error: "Signer email is required" });
@@ -59,6 +61,10 @@ router.post("/:documentId", requireAuth, async (req: AuthRequest, res) => {
       console.error("Email sending failed:", emailErr);
       // Continue anyway — return the link even if email fails
     }
+
+    await logAudit(docId, "signing_link_sent", req.userEmail, String(req.ip), {
+      signer_email,
+    });
 
     res.json({
       success: true,
@@ -120,8 +126,6 @@ router.get("/sign/:token", async (req, res) => {
 // POST /api/share/sign/:token/complete — mark as signed (public, no auth)
 router.post("/sign/:token/complete", async (req, res) => {
   try {
-    const { ip_address } = req.body;
-
     const { data: signature, error: findError } = await supabase
       .from("signatures")
       .select("*, documents(*)")
@@ -138,24 +142,68 @@ router.post("/sign/:token/complete", async (req, res) => {
       return;
     }
 
-    // Mark signature as signed
+    // Get all signatures for this document
+    const { data: allSignatures } = await supabase
+      .from("signatures")
+      .select("*")
+      .eq("document_id", signature.document_id);
+
+    const doc = signature.documents as any;
+
+    // Download original PDF
+    const pdfResponse = await fetch(doc.file_url);
+    const pdfBuffer = await pdfResponse.arrayBuffer();
+
+    // Generate signed PDF
+    const { generateSignedPdf } = await import("../lib/generateSignedPdf");
+    const signedPdfBytes = await generateSignedPdf(
+      pdfBuffer,
+      allSignatures || [signature],
+    );
+
+    // Upload signed PDF
+    const signedFileName = `signed_${Date.now()}_${doc.file_name}`;
+    await supabase.storage
+      .from("documents")
+      .upload(signedFileName, signedPdfBytes, {
+        contentType: "application/pdf",
+        upsert: false,
+      });
+
+    const { data: urlData } = await supabase.storage
+      .from("documents")
+      .createSignedUrl(signedFileName, 60 * 60 * 24 * 7);
+
+    // Update signature
     await supabase
       .from("signatures")
       .update({
         status: "signed",
         signed_at: new Date().toISOString(),
-        ip_address: ip_address || req.ip,
+        ip_address: req.ip || "",
       })
       .eq("token", req.params.token);
 
-    // Update document status
+    // Update document
     await supabase
       .from("documents")
-      .update({ status: "signed" })
+      .update({
+        status: "signed",
+        signed_file_url: urlData?.signedUrl || doc.file_url,
+      })
       .eq("id", signature.document_id);
+
+    await logAudit(
+      signature.document_id,
+      "document_signed",
+      String(signature.signer_email),
+      String(req.ip),
+      { token: req.params.token },
+    );
 
     res.json({ success: true, message: "Document signed successfully" });
   } catch (err) {
+    console.error("Sign complete error:", err);
     res.status(500).json({ error: "Failed to complete signing" });
   }
 });

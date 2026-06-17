@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import { requireAuth, AuthRequest } from "../middleware/requireAuth";
 import { generateSignedPdf } from "../lib/generateSignedPdf";
 import fetch from "node-fetch";
+import { logAudit } from "../lib/audit";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -49,10 +50,13 @@ router.post(
         return;
       }
 
+      console.log("userEmail before insert:", req.userEmail);
+
       const { data: doc, error: dbError } = await supabase
         .from("documents")
         .insert({
           user_id: req.userId,
+          owner_email: req.userEmail || null,
           file_name: file.originalname,
           file_url: urlData.signedUrl,
           status: "pending",
@@ -64,6 +68,14 @@ router.post(
         res.status(500).json({ error: dbError.message });
         return;
       }
+
+      await logAudit(
+        doc.id,
+        "document_uploaded",
+        req.userEmail,
+        String(req.ip),
+        { file_name: file.originalname },
+      );
 
       res.status(201).json({ document: doc });
     } catch (err) {
@@ -113,6 +125,10 @@ router.get("/:id", requireAuth, async (req: AuthRequest, res) => {
 
 router.post("/:id/finalize", requireAuth, async (req: AuthRequest, res) => {
   try {
+    const docId = Array.isArray(req.params.id)
+      ? req.params.id[0]
+      : req.params.id;
+
     const { data: doc, error: docError } = await supabase
       .from("documents")
       .select("*")
@@ -194,6 +210,10 @@ router.post("/:id/finalize", requireAuth, async (req: AuthRequest, res) => {
         signed_at: new Date().toISOString(),
       })
       .eq("document_id", req.params.id);
+
+    await logAudit(docId, "document_finalized", req.userEmail, String(req.ip), {
+      signed_file_url: urlData.signedUrl,
+    });
 
     res.json({
       document: updatedDoc,

@@ -1,21 +1,26 @@
 import { useAuth } from "@clerk/clerk-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { setAuthToken } from "../lib/axios";
 
 export const AuthSync = ({ children }: { children: React.ReactNode }) => {
-  const { getToken, isSignedIn } = useAuth();
+  const { getToken, isSignedIn, isLoaded } = useAuth();
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const syncToken = async () => {
+    const sync = async () => {
+      if (!isLoaded) return;
       if (isSignedIn) {
         const token = await getToken();
         setAuthToken(token);
       } else {
         setAuthToken(null);
       }
+      setReady(true);
     };
-    syncToken();
-  }, [isSignedIn]);
+    sync();
+  }, [isSignedIn, isLoaded]);
+
+  if (!ready) return null;
 
   return <>{children}</>;
 };

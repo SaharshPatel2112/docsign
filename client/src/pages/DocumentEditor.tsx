@@ -35,6 +35,8 @@ export const DocumentEditor = () => {
   const [showAllFields, setShowAllFields] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [shareLink, setShareLink] = useState("");
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const handleDrag = (sigId: string, x: number, y: number) => {
     setSignatures((prev) =>
@@ -140,12 +142,29 @@ export const DocumentEditor = () => {
       const token = await getToken();
       setAuthToken(token);
 
+      // Save signatures first
+      await api.delete(`/api/signatures/document/${id}`);
+      for (const sig of signatures) {
+        await api.post("/api/signatures", {
+          document_id: id,
+          x: sig.x,
+          y: sig.y,
+          page: sig.page,
+          signer_email: signerEmail,
+        });
+      }
+
       const res = await api.post(`/api/share/${id}`, {
         signer_email: signerEmail,
       });
 
       const link = res.data.signing_link;
-      alert(`Signing link:\n${link}\n\nCopy this and open in browser to test.`);
+
+      // Copy to clipboard
+      await navigator.clipboard.writeText(link);
+      setShareLink(link);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 3000);
     } catch (err: any) {
       alert(err.response?.data?.error || "Failed to send signing link");
     } finally {
@@ -225,6 +244,22 @@ export const DocumentEditor = () => {
           </button>
         </div>
       </nav>
+
+      {shareLink && (
+        <div className="flex-shrink-0 flex items-center justify-between bg-purple-900 border-b border-purple-700 px-6 py-3 gap-4">
+          <p className="text-purple-200 text-sm truncate">{shareLink}</p>
+          <button
+            onClick={async () => {
+              await navigator.clipboard.writeText(shareLink);
+              setLinkCopied(true);
+              setTimeout(() => setLinkCopied(false), 2000);
+            }}
+            className="flex-shrink-0 bg-purple-600 hover:bg-purple-500 text-white text-xs px-3 py-1.5 rounded-lg transition"
+          >
+            {linkCopied ? "✓ Copied!" : "Copy Link"}
+          </button>
+        </div>
+      )}
 
       {/* Body */}
       <div className="flex flex-1 overflow-hidden">

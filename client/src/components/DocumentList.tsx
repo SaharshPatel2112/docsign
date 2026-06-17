@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import api, { setAuthToken } from "../lib/axios";
+import { AuditLog } from "./AuditLog";
 
 interface Document {
   id: string;
@@ -27,6 +28,7 @@ export const DocumentList = ({ refresh }: Props) => {
       try {
         setLoading(true);
         const token = await getToken();
+        console.log("Token:", token);
         setAuthToken(token);
         const res = await api.get("/api/docs");
         setDocuments(res.data.documents);
@@ -70,44 +72,66 @@ export const DocumentList = ({ refresh }: Props) => {
       {documents.map((doc) => (
         <div
           key={doc.id}
-          onClick={() => navigate(`/editor/${doc.id}`)}
-          className="flex items-center justify-between bg-gray-900 border border-gray-800 rounded-lg px-5 py-4 cursor-pointer hover:border-blue-500 hover:bg-gray-800 transition group"
+          className="flex flex-col bg-gray-900 border border-gray-800 rounded-lg transition hover:border-blue-500 group"
         >
-          <div className="flex items-center gap-4 min-w-0 flex-1">
-            <span className="text-2xl flex-shrink-0">📄</span>
-            <div className="flex flex-col gap-1 min-w-0">
-              <p className="text-white font-medium group-hover:text-blue-400 transition truncate text-left">
-                {doc.file_name}
-              </p>
-              <p className="text-gray-500 text-sm text-left">
-                {new Date(doc.created_at).toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
-                })}
-              </p>
+          {/* Card row */}
+          <div
+            onClick={() =>
+              doc.status !== "signed" && navigate(`/editor/${doc.id}`)
+            }
+            className={`flex items-center justify-between px-5 py-4 transition rounded-t-lg ${
+              doc.status !== "signed"
+                ? "cursor-pointer hover:bg-gray-800"
+                : "cursor-default"
+            }`}
+          >
+            <div className="flex items-center gap-4 min-w-0 flex-1">
+              <span className="text-2xl flex-shrink-0">📄</span>
+              <div className="flex flex-col gap-1 min-w-0">
+                <p className="text-white font-medium group-hover:text-blue-400 transition truncate text-left">
+                  {doc.file_name}
+                </p>
+                <p className="text-gray-500 text-sm text-left">
+                  {new Date(doc.created_at + "Z").toLocaleDateString("en-IN", {
+                    timeZone: "Asia/Kolkata",
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                  })}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+              <span
+                className={`text-xs font-semibold uppercase px-2 py-1 rounded border ${statusColor(doc.status)}`}
+              >
+                {doc.status}
+              </span>
+              {doc.status === "signed" && doc.signed_file_url && (
+                <a
+                  href={doc.signed_file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-xs bg-green-700 hover:bg-green-600 text-white px-2 py-1 rounded transition"
+                >
+                  ↓ Download
+                </a>
+              )}
+              {doc.status !== "signed" && (
+                <span className="text-gray-600 group-hover:text-gray-400 transition text-sm">
+                  →
+                </span>
+              )}
             </div>
           </div>
-          <div className="flex items-center gap-3 flex-shrink-0 ml-4">
-            <span
-              className={`text-xs font-semibold uppercase px-2 py-1 rounded border ${statusColor(doc.status)}`}
-            >
-              {doc.status}
-            </span>
-            {doc.status === "signed" && doc.signed_file_url && (
-              <a
-                href={doc.signed_file_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="text-xs bg-green-700 hover:bg-green-600 text-white px-2 py-1 rounded transition"
-              >
-                ↓ Download
-              </a>
-            )}
-            <span className="text-gray-600 group-hover:text-gray-400 transition text-sm">
-              →
-            </span>
+
+          {/* Audit log */}
+          <div
+            className="px-5 pb-3 border-t border-gray-800"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <AuditLog documentId={doc.id} />
           </div>
         </div>
       ))}
