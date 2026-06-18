@@ -8,7 +8,14 @@ import shareRouter from "./routes/share";
 import auditRouter from "./routes/audit";
 
 const app = express();
-app.use(cors());
+
+app.use(
+  cors({
+    origin: ["http://localhost:5173", process.env.FRONTEND_URL || ""],
+    credentials: true,
+  }),
+);
+
 app.use(express.json());
 
 app.get("/health", (_, res) => res.json({ status: "ok" }));
@@ -18,4 +25,5 @@ app.use("/api/signatures", signaturesRouter);
 app.use("/api/share", shareRouter);
 app.use("/api/audit", auditRouter);
 
-app.listen(5000, () => console.log("Server running on port 5000"));
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
