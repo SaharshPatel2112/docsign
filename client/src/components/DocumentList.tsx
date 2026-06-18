@@ -15,9 +15,10 @@ interface Document {
 
 interface Props {
   refresh: number;
+  filter: "all" | "pending" | "signed" | "rejected";
 }
 
-export const DocumentList = ({ refresh }: Props) => {
+export const DocumentList = ({ refresh, filter }: Props) => {
   const { getToken } = useAuth();
   const navigate = useNavigate();
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -28,7 +29,6 @@ export const DocumentList = ({ refresh }: Props) => {
       try {
         setLoading(true);
         const token = await getToken();
-        console.log("Token:", token);
         setAuthToken(token);
         const res = await api.get("/api/docs");
         setDocuments(res.data.documents);
@@ -49,6 +49,9 @@ export const DocumentList = ({ refresh }: Props) => {
     return "bg-yellow-500 bg-opacity-20 text-yellow-400 border-yellow-500";
   };
 
+  const filtered =
+    filter === "all" ? documents : documents.filter((d) => d.status === filter);
+
   if (loading)
     return (
       <div className="flex flex-col gap-3">
@@ -67,9 +70,20 @@ export const DocumentList = ({ refresh }: Props) => {
       </div>
     );
 
+  if (filtered.length === 0)
+    return (
+      <div className="flex flex-col items-start justify-center py-20 gap-3">
+        <p className="text-4xl">🔍</p>
+        <p className="text-gray-400 text-lg">No {filter} documents</p>
+        <p className="text-gray-600 text-sm">
+          Try a different filter or upload a new document
+        </p>
+      </div>
+    );
+
   return (
     <div className="flex flex-col gap-3">
-      {documents.map((doc) => (
+      {filtered.map((doc) => (
         <div
           key={doc.id}
           className="flex flex-col bg-gray-900 border border-gray-800 rounded-lg transition hover:border-blue-500 group"
@@ -126,7 +140,7 @@ export const DocumentList = ({ refresh }: Props) => {
                   onClick={(e) => e.stopPropagation()}
                   className="text-xs bg-red-700 hover:bg-red-600 text-white px-2 py-1 rounded transition"
                 >
-                  ↓ Download
+                  ↓ Original
                 </a>
               )}
               {doc.status === "pending" && (
