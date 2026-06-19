@@ -153,10 +153,13 @@ export const DocumentEditor = () => {
           signer_email: signerEmail,
         });
       }
+      console.log("About to call share API...");
 
       const res = await api.post(`/api/share/${id}`, {
         signer_email: signerEmail,
       });
+
+      console.log("Share response:", res.data);
 
       const link = res.data.signing_link;
 
@@ -166,6 +169,7 @@ export const DocumentEditor = () => {
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 3000);
     } catch (err: any) {
+      console.error("Share error:", err.response?.data || err.message);
       alert(err.response?.data?.error || "Failed to send signing link");
     } finally {
       setSharing(false);
