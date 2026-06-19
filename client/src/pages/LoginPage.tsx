@@ -30,8 +30,8 @@ export const LoginPage = () => {
   return (
     <div className="min-h-screen bg-gray-950 flex">
       {/* Left panel */}
-      <div className="hidden lg:flex flex-col justify-between w-1/2 bg-gradient-to-br from-gray-900 via-blue-950 to-gray-950 px-16 py-12 border-r border-gray-800">
-        <div className="flex items-center gap-3">
+      <div className="hidden lg:flex flex-col justify-between w-1/2 bg-gradient-to-br from-gray-900 via-blue-950 to-gray-950 px-12 py-12 border-r border-gray-800">
+        <div className="flex items-center gap-3 justify-center">
           <img src="/docsign.svg" alt="DocSign" className="w-9 h-9" />
           <span className="text-2xl font-bold text-white tracking-tight">
             DocSign
@@ -51,15 +51,22 @@ export const LoginPage = () => {
             </p>
           </div>
 
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-6">
             {features.map((f) => (
-              <div key={f.title} className="flex items-start gap-4">
+              <div
+                key={f.title}
+                className="flex items-start gap-4 min-h-[44px]"
+              >
                 <div className="w-10 h-10 rounded-lg bg-blue-600 bg-opacity-20 border border-blue-500 border-opacity-30 flex items-center justify-center text-lg flex-shrink-0">
                   {f.icon}
                 </div>
-                <div>
-                  <p className="text-white font-medium text-sm">{f.title}</p>
-                  <p className="text-gray-500 text-xs mt-0.5">{f.desc}</p>
+                <div className="text-left">
+                  <p className="text-white font-medium text-sm text-left">
+                    {f.title}
+                  </p>
+                  <p className="text-gray-500 text-xs mt-0.5 text-left">
+                    {f.desc}
+                  </p>
                 </div>
               </div>
             ))}
