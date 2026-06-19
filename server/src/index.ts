@@ -8,6 +8,7 @@ import shareRouter from "./routes/share";
 import auditRouter from "./routes/audit";
 
 const app = express();
+app.set("trust proxy", true);
 
 app.use(
   cors({

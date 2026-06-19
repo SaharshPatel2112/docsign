@@ -23,7 +23,7 @@ router.post("/:documentId", requireAuth, async (req: AuthRequest, res) => {
     const { data: doc, error: docError } = await supabase
       .from("documents")
       .select("*")
-      .eq("id", documentId)
+      .eq("id", docId)
       .eq("user_id", req.userId)
       .single();
 
@@ -32,10 +32,9 @@ router.post("/:documentId", requireAuth, async (req: AuthRequest, res) => {
       return;
     }
 
-    // Generate unique token
+    // Generate one token shared across all signature fields for this document
     const token = uuidv4();
 
-    // Update signatures with token and signer info
     const { error: updateError } = await supabase
       .from("signatures")
       .update({
@@ -44,14 +43,13 @@ router.post("/:documentId", requireAuth, async (req: AuthRequest, res) => {
         token,
         status: "pending",
       })
-      .eq("document_id", documentId);
+      .eq("document_id", docId);
 
     if (updateError) {
       res.status(500).json({ error: updateError.message });
       return;
     }
 
-    // Generate signing link
     const signingLink = `${process.env.FRONTEND_URL}/sign/${token}`;
 
     // Send email — don't crash if it fails
@@ -59,24 +57,16 @@ router.post("/:documentId", requireAuth, async (req: AuthRequest, res) => {
       await sendSigningEmail(signer_email, doc.file_name, signingLink);
     } catch (emailErr) {
       console.error("Email sending failed:", emailErr);
-      // Continue anyway — return the link even if email fails
     }
 
     await logAudit(docId, "signing_link_sent", req.userEmail, String(req.ip), {
       signer_email,
     });
 
-    res.json({
-      success: true,
-      signing_link: signingLink,
-      message: `Signing link generated. Email may have failed — check server logs.`,
-    });
-
-    // Update document status
     await supabase
       .from("documents")
       .update({ status: "pending" })
-      .eq("id", documentId);
+      .eq("id", docId);
 
     res.json({
       success: true,
