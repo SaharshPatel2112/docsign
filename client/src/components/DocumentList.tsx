@@ -140,7 +140,7 @@ export const DocumentList = ({ refresh, filter }: Props) => {
                   onClick={(e) => e.stopPropagation()}
                   className="text-xs bg-red-700 hover:bg-red-600 text-white px-2 py-1 rounded transition"
                 >
-                  ↓ Original
+                  ↓ Download
                 </a>
               )}
               {doc.status === "pending" && (

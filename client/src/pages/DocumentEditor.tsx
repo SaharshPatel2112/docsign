@@ -142,7 +142,6 @@ export const DocumentEditor = () => {
       const token = await getToken();
       setAuthToken(token);
 
-      // Save signatures first
       await api.delete(`/api/signatures/document/${id}`);
       for (const sig of signatures) {
         await api.post("/api/signatures", {
@@ -153,21 +152,24 @@ export const DocumentEditor = () => {
           signer_email: signerEmail,
         });
       }
-      console.log("About to call share API...");
 
       const res = await api.post(`/api/share/${id}`, {
         signer_email: signerEmail,
       });
 
-      console.log("Share response:", res.data);
-
       const link = res.data.signing_link;
-
-      // Copy to clipboard
-      await navigator.clipboard.writeText(link);
       setShareLink(link);
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 3000);
+
+      // Clipboard is best-effort — never block on it
+      navigator.clipboard
+        .writeText(link)
+        .then(() => {
+          setLinkCopied(true);
+          setTimeout(() => setLinkCopied(false), 3000);
+        })
+        .catch(() => {
+          // Permission denied or unsupported — link is still shown in the banner
+        });
     } catch (err: any) {
       console.error("Share error:", err.response?.data || err.message);
       alert(err.response?.data?.error || "Failed to send signing link");
